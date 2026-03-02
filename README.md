@@ -1,2 +1,2 @@
 # AETHER
-Affinity Evaluation for T-cell HLA Epitope Recognition.
+*A*ffinity *E*valuation for *T*-cell *H*LA *E*pitope *R*ecognition.
