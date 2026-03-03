@@ -1,7 +1,9 @@
 ```bash
+# If the HF file is private/gated:
+export HF_TOKEN=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
+
 python train.py \
-  --split_dir /Users/vivianschu/repos/AETHER/data/model/splits/mhc-80-10-10 \
-  --out_dir /Users/vivianschu/repos/AETHER/outputs/mhc_binding_esm_shared \
+  --out_dir /Users/vivianschu/repos/AETHER/outputs/mhc_binding_esm_shared_hf \
   --freeze_backbone \
   --batch_size 8 \
   --epochs 10 \
