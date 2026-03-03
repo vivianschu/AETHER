@@ -41,6 +41,7 @@ wandb login
 ```bash
 export TOKENIZERS_PARALLELISM=false
 
+# without wandb
 python -m neoantigen.train.train \
   --out_dir /scratch/$USER/aether/mhc_binding_esm_shared_hf \
   --csv_url /project/6101773/vchu/AETHER/data/model/mhc_set.csv \
@@ -50,6 +51,21 @@ python -m neoantigen.train.train \
   --lr 2e-4 \
   --amp \
   --num_workers 0
+
+# with wandb
+python -m neoantigen.train.train \
+  --out_dir /scratch/$USER/aether/mhc_binding_esm_shared_hf \
+  --csv_url /project/6101773/vchu/AETHER/data/model/mhc_set.csv \
+  --freeze_backbone \
+  --batch_size 8 \
+  --epochs 50 \
+  --lr 2e-4 \
+  --amp \
+  --num_workers 0 \
+  --wandb \
+  --wandb_project aether \
+  --wandb_run_name test_mhc_esm2_freeze \
+  --wandb_tags "killarney,l40s,freeze"
 ```
 
 
