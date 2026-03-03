@@ -80,7 +80,7 @@ def main():
     ckpt = torch.load(args.ckpt, map_location=device)
     ckpt_args = ckpt.get("args", {})
 
-    model_name = ckpt_args.get("model_name", "facebook/esm2_t33_650M_UR50D")
+    model_name = ckpt_args.get("model_name", "esm3_sm_open_v1")
     freeze_backbone = ckpt_args.get("freeze_backbone", True)
 
     model = NeoantigenModel(model_name=model_name, freeze_backbone=freeze_backbone).to(device)
