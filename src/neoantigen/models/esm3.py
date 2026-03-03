@@ -74,8 +74,9 @@ class ESM3Encoder(nn.Module):
         input_ids = encoded["input_ids"].to(self.device)
         attention_mask = encoded["attention_mask"].to(self.device)
 
-        # ESM3 must run in float32 (or bfloat16); float16 overflows its deep
-        # attention (1536-dim) and produces NaN under torch.amp.autocast("cuda").
-        with torch.amp.autocast(device_type="cuda", enabled=False):
+        # ESM3 weights are stored in bfloat16 and must not run under float16
+        # autocast (1536-dim attention overflows float16 → NaN).  Force bfloat16
+        # so autocast casts activations to match the stored weight dtype.
+        with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
             output = self.model(sequence_tokens=input_ids)
         return output.embeddings.float(), attention_mask  # (B, L, D), (B, L)
