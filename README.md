@@ -1,7 +1,5 @@
 # AETHER
-
-Affinity Evaluation for T-cell HLA Epitope Recognition.
-
+**A**ffinity **E**valuation for **T**-cell **H**LA **E**pitope Recognition.
 
 Project Structure
 -----------------
@@ -16,12 +14,9 @@ AETHER/
 │       ├── infer/       # Inference scripts (predict.py)
 │       ├── models/      # Model code (ESM encoder, transformer head)
 │       └── train/       # Training scripts (train.py)
-├── requirements_pep.txt
-
-Affinity Evaluation for T-cell HLA Epitope Recognition.
-├── README.md
-└── docs/                # Usage, developer, and experiment notes
+├── requirements.txt
 ```
+
 Main scripts
 ------------
 - Training: `src/neoantigen/train/train.py` (see `src/neoantigen/train/README.md` for example command)
@@ -38,9 +33,9 @@ Quick start
 -----------
 1. Create a Python environment (conda or venv).
 2. Install dependencies for the workflow you plan to run:
+	- For training: `pip install -r requirements.txt`
+3. Run the appropriate `train_*.sh` script for experiment (see `src/neoantigen/train/README.md` for example command).
 
-		- For legacy workflows:
-		```bash
 Usage
 -----
 		```bash
@@ -50,26 +45,13 @@ Usage
 			--freeze_backbone --batch_size 8 --epochs 10 --lr 2e-4 --amp
 		```
 - Predict binding on a test set:
+		```bash
 			--ckpt outputs/mhc_binding_esm_shared/best.pt \
 			--input_csv data/model/splits/mhc-80-10-10/test.csv \
 			--output_csv outputs/mhc_binding_esm_shared/test_preds.csv \
 			--amp
 		```
 
-Documentation
--------------
-- Usage guide: [docs/usage.md](docs/usage.md)
-- Developer notes: [docs/developer.md](docs/developer.md)
-- Experiment run formats & legacy notes: [docs/experiments.md](docs/experiments.md)
-
 Developer notes
 ---------------
 - The repository was standardized to use the model name **AETHER** across docs and scripts.
-
-Useful files
-------------
-- `requirements.txt` — dependencies
-
-Next steps
-----------
-- Run the appropriate `train_*.sh` script for experiment.
