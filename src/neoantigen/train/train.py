@@ -112,7 +112,7 @@ def main():
     )
     parser.add_argument("--out_dir", type=str, required=True)
 
-    parser.add_argument("--model_name", type=str, default="facebook/esm2_t33_650M_UR50D")
+    parser.add_argument("--model_name", type=str, default="esm3_sm_open_v1")
     parser.add_argument("--freeze_backbone", action="store_true")
 
     parser.add_argument("--seed", type=int, default=1337)
