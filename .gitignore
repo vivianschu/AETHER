@@ -211,3 +211,4 @@ archive/
 .DS_Store
 *.csv
 *.fasta
+.keys

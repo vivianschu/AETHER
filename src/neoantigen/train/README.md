@@ -1,6 +1,6 @@
 ```bash
 # If the HF file is private/gated:
-export HF_TOKEN=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
+export HF_TOKEN=
 
 # Train with frozen ESM3 backbone (recommended first run)
 python -m neoantigen.train.train \

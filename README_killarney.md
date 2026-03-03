@@ -32,8 +32,11 @@ if torch.cuda.is_available():
     print("device:", torch.cuda.get_device_name(0))
 PY
 
-export WANDB_API_KEY="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"
+export WANDB_API_KEY=""
 wandb login
+
+export WANDB_CACHE_DIR=/scratch/vchu/wandb_cache
+export WANDB_DIR=/scratch/vchu/wandb
 
 ```
 
@@ -41,7 +44,7 @@ wandb login
 ```bash
 # without wandb
 python -m neoantigen.train.train \
-  --out_dir /scratch/$USER/aether/mhc_binding_esm_shared_hf \
+  --out_dir /scratch/$USER/aether/mhc_binding_esm3 \
   --csv_url /project/6101773/vchu/AETHER/data/model/mhc_set.csv \
   --freeze_backbone \
   --batch_size 8 \
@@ -52,7 +55,7 @@ python -m neoantigen.train.train \
 
 # with wandb
 python -m neoantigen.train.train \
-  --out_dir /scratch/$USER/aether/mhc_binding_esm_shared_hf \
+  --out_dir /scratch/$USER/aether/mhc_binding_esm3 \
   --csv_url /project/6101773/vchu/AETHER/data/model/mhc_set.csv \
   --freeze_backbone \
   --batch_size 8 \
@@ -92,7 +95,7 @@ nvidia-smi || true
 python -c "import torch; print('cuda:', torch.cuda.is_available(), 'device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'cpu')"
 
 python -m neoantigen.train.train \
-  --out_dir /home/vchu/scratch/aether/mhc_binding_esm_shared_hf \
+  --out_dir /home/vchu/scratch/aether/mhc_binding_esm3 \
   --csv_url /home/vchu/projects/6101773/vchu/AETHER/data/model/mhc_set.csv \
   --freeze_backbone \
   --batch_size 8 \
