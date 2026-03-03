@@ -24,13 +24,17 @@ class AttentionPool(nn.Module):
         mask: (B, L)     1 = real token, 0 = padding
         returns (B, D)
         """
-        logits = self.w(x).squeeze(-1)                        # (B, L)
-        logits = logits.masked_fill(mask == 0, float("-inf"))  # mask padding
-        weights = torch.softmax(logits, dim=-1)                # (B, L)
-        # nan_to_num guards against the degenerate case where all positions are
-        # masked (softmax of all-(-inf) → NaN); fall back to zero contribution.
-        weights = weights.nan_to_num(0.0)
-        return torch.bmm(weights.unsqueeze(1), x).squeeze(1)  # (B, D)
+        # Run in float32: softmax over long sequences can overflow and produce
+        # NaN in float16 under torch.amp.autocast("cuda").
+        with torch.amp.autocast(device_type=x.device.type, enabled=False):
+            x = x.float()
+            logits = self.w(x).squeeze(-1)                        # (B, L)
+            logits = logits.masked_fill(mask == 0, float("-inf"))  # mask padding
+            weights = torch.softmax(logits, dim=-1)                # (B, L)
+            # nan_to_num guards against the degenerate case where all positions are
+            # masked (softmax of all-(-inf) → NaN); fall back to zero contribution.
+            weights = weights.nan_to_num(0.0)
+            return torch.bmm(weights.unsqueeze(1), x).squeeze(1)  # (B, D)
 
 
 class ESM3Encoder(nn.Module):

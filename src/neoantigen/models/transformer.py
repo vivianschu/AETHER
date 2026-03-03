@@ -28,13 +28,17 @@ class CrossAttention(nn.Module):
         context: torch.Tensor,         # (B, Lkv, D)  key/value sequence
         key_padding_mask: torch.Tensor, # (B, Lkv)    True = ignore position
     ) -> torch.Tensor:
-        attn_out, _ = self.attn(
-            query=x,
-            key=context,
-            value=context,
-            key_padding_mask=key_padding_mask,
-        )
-        return self.norm(x + self.drop(attn_out))  # (B, Lq, D)
+        # Run MHA in float32: attention scores (Q @ K^T) overflow in float16
+        # for 512-dim attention under torch.amp.autocast("cuda").
+        with torch.amp.autocast(device_type=x.device.type, enabled=False):
+            x = x.float()
+            attn_out, _ = self.attn(
+                query=x,
+                key=context.float(),
+                value=context.float(),
+                key_padding_mask=key_padding_mask,
+            )
+            return self.norm(x + self.drop(attn_out))  # (B, Lq, D)
 
 
 class NeoantigenModel(nn.Module):
