@@ -2,8 +2,9 @@
 # If the HF file is private/gated:
 export HF_TOKEN=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
 
-python train.py \
-  --out_dir /Users/vivianschu/repos/AETHER/outputs/mhc_binding_esm_shared_hf \
+python -m neoantigen.train.train \
+  --out_dir /scratch/vchu/aether/mhc_binding_esm_shared_hf \
+  --csv_url /home/vchu/projects/aip-wanglab/vchu/AETHER/data/model/mhc_set.csv \
   --freeze_backbone \
   --batch_size 8 \
   --epochs 10 \

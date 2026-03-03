@@ -34,10 +34,12 @@ Quick start
 1. Create a Python environment (conda or venv).
 	```bash
 	module load python/3.12 cuda/12.2
-	PROJNAME=AETHER
-	virtualenv --no-download "venv" --prompt "$PROJNAME"
-	source "venv/bin/activate"
-	pip install --upgrade pip
+	module load arrow/21.0.0
+	module load slurm
+	python -m venv --system-site-packages ~/venv/aether_sys
+	source ~/venv/aether_sys/bin/activate
+	python -c "import pyarrow as pa; print(pa.__version__)"
+	pip install datasets
 
 	# To update packages from requirements
 	pip install -r requirements.txt --upgrade

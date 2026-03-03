@@ -11,21 +11,6 @@ from torch.utils.data import Dataset, DataLoader
 from datasets import load_dataset
 
 
-def convert_qualitative_measurement(x):
-    if x == "Positive":
-        return 1.0
-    elif x == "Negative":
-        return 0.0
-    elif x == "Positive-Low":
-        return 0.25
-    elif x == "Positive-High":
-        return 0.75
-    elif x == "Positive-Intermediate":
-        return 0.5
-    else:
-        return np.nan
-
-
 class NeoantigenDataset(Dataset):
     def __init__(self, df: pd.DataFrame):
         self.df = df.reset_index(drop=True)
@@ -102,7 +87,7 @@ def prepare_df(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Dataset missing columns: {missing}. Found: {list(df.columns)}")
 
     df = df[required].copy()
-    df["y"] = df["mhc_binding"].apply(convert_qualitative_measurement)
+    df["y"] = pd.to_numeric(df["mhc_binding"], errors="coerce")
 
     # Drop NaNs (labels or sequences)
     df = df.dropna(subset=["epitope", "mhc_sequence", "y"]).reset_index(drop=True)

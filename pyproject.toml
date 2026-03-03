@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neoantigen"
+version = "0.1.0"
+description = "Neoantigen training models"
+requires-python = ">=3.10"
+
+# Keep this minimal — cluster already provides most deps
+dependencies = [
+    "torch",
+    "transformers",
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "biopython",
+    "datasets",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

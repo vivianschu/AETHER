@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from dataloader import DataConfig, get_dataloaders
+from .dataloader import DataConfig, get_dataloaders
 from neoantigen.models.transformer import NeoantigenModel
 
 
@@ -147,8 +147,8 @@ def main():
         weight_decay=args.weight_decay,
     )
 
-    scaler = torch.cuda.amp.GradScaler(enabled=(args.amp and device.type == "cuda"))
-
+    scaler = torch.amp.GradScaler("cuda", enabled=(args.amp and device.type == "cuda"))
+    
     os.makedirs(args.out_dir, exist_ok=True)
     with open(os.path.join(args.out_dir, "config.json"), "w") as f:
         json.dump(vars(args), f, indent=2)
@@ -163,12 +163,14 @@ def main():
         running_loss = 0.0
         n = 0
 
-        for peptides, mhcs, y in train_loader:
+        print(f"Starting epoch {epoch}...", flush=True)
+
+        for step, (peptides, mhcs, y) in enumerate(train_loader, start=1):
             y = y.to(device)
             optimizer.zero_grad(set_to_none=True)
 
             if scaler.is_enabled():
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast("cuda"):
                     logits = model(peptides, mhcs)
                     loss = loss_fn(logits, y)
                 scaler.scale(loss).backward()
@@ -189,6 +191,9 @@ def main():
             running_loss += float(loss.item()) * bs
             n += bs
 
+            if step % 50 == 0:
+                print(f"epoch {epoch} step {step} loss={loss.item():.4f}", flush=True)
+
         train_loss = running_loss / max(n, 1)
         val_metrics = evaluate(model, valid_loader, device, loss_fn, args.auc_label_threshold)
 
@@ -200,7 +205,8 @@ def main():
         print(
             f"epoch {epoch:02d} | train_loss {train_loss:.4f} | "
             f"val_loss {val_metrics['loss']:.4f} | val_mae {val_metrics['mae']:.4f} | val_mse {val_metrics['mse']:.4f}"
-            + (f" | val_auc {val_metrics['auc']:.4f}" if "auc" in val_metrics else " | val_auc NA")
+            + (f" | val_auc {val_metrics['auc']:.4f}" if "auc" in val_metrics else " | val_auc NA"),
+            flush=True,
         )
 
         save_checkpoint(last_path, model, optimizer, epoch, best_val, args)

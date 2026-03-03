@@ -5,3 +5,4 @@ numpy>=1.24.2
 scikit-learn>=1.2.1
 biopython>=1.81
 datasets>=2.14.0
+wandb==0.18.0
