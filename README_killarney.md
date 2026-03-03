@@ -39,8 +39,6 @@ wandb login
 
 2. Run inside the interactive shell
 ```bash
-export TOKENIZERS_PARALLELISM=false
-
 # without wandb
 python -m neoantigen.train.train \
   --out_dir /scratch/$USER/aether/mhc_binding_esm_shared_hf \
@@ -64,8 +62,8 @@ python -m neoantigen.train.train \
   --num_workers 0 \
   --wandb \
   --wandb_project aether \
-  --wandb_run_name test_mhc_esm2_freeze \
-  --wandb_tags "killarney,l40s,freeze"
+  --wandb_run_name test_mhc_esm3_freeze \
+  --wandb_tags "killarney,l40s,esm3,freeze"
 ```
 
 

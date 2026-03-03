@@ -1,9 +1,10 @@
-Dataset
------------
-Source: CEDAR: Cancer Epitope Database and Analysis Resource, a curated dataset of peptide–HLA binding affinities.
+CEDAR: Cancer Epitope Database and Analysis Resource.
 
-Filters:
-- Include positive and negative assays
+Curated peptide–HLA binding affinity data for neoantigen model training.
+
+Filters applied
+---------------
+- Include positive and negative binding assays
 - No B cell assays
 - Host: Homo sapiens (human)
 - Exclude viral antigens

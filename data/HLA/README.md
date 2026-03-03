@@ -1,4 +1,7 @@
-Accessed HLA annotation through IPD-IMGT/HLA database as Guest:
-https://www.ebi.ac.uk/ipd/imgt/hla/annotation/
+HLA allele protein sequences from the IPD-IMGT/HLA database.
 
-file: hla_prot.fasta
+Source: https://www.ebi.ac.uk/ipd/imgt/hla/annotation/ (accessed as Guest)
+
+Files
+-----
+- `hla_prot.fasta` — full-length HLA protein sequences in FASTA format, one entry per allele

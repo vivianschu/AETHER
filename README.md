@@ -12,7 +12,7 @@ AETHER/
 ├── src/
 │   └── neoantigen/
 │       ├── infer/       # Inference scripts (predict.py)
-│       ├── models/      # Model code (ESM encoder, transformer head)
+│       ├── models/      # Model code (ESM3 backbone, cross-attention head)
 │       └── train/       # Training scripts (train.py)
 ├── requirements.txt
 ```
@@ -21,7 +21,7 @@ Main scripts
 ------------
 - Training: `src/neoantigen/train/train.py` (see `src/neoantigen/train/README.md` for example command)
 - Inference: `src/neoantigen/infer/predict.py` (see `src/neoantigen/infer/README.md`)
-- Model: `src/neoantigen/models/esm.py` (ESM encoder), `src/neoantigen/models/transformer.py` (NeoantigenModel)
+- Model: `src/neoantigen/models/esm3.py` (ESM3 backbone + attention pooling), `src/neoantigen/models/transformer.py` (NeoantigenModel with cross-attention)
 
 Data folders
 ------------
@@ -50,20 +50,24 @@ Quick start
 
 Usage
 -----
-		```bash
-		python src/neoantigen/train/train.py \
-			--split_dir data/model/splits/mhc-80-10-10 \
-			--out_dir outputs/mhc_binding_esm_shared \
-			--freeze_backbone --batch_size 8 --epochs 10 --lr 2e-4 --amp
-		```
+- Train on MHC binding data:
+	```bash
+	python -m neoantigen.train.train \
+		--csv_url data/model/mhc_set.csv \
+		--out_dir outputs/mhc_binding \
+		--freeze_backbone --batch_size 8 --epochs 10 --lr 2e-4 --amp
+	```
 - Predict binding on a test set:
-		```bash
-			--ckpt outputs/mhc_binding_esm_shared/best.pt \
-			--input_csv data/model/splits/mhc-80-10-10/test.csv \
-			--output_csv outputs/mhc_binding_esm_shared/test_preds.csv \
-			--amp
-		```
+	```bash
+	python -m neoantigen.infer.predict \
+		--ckpt outputs/mhc_binding/best.pt \
+		--input_csv data/model/mhc_set.csv \
+		--output_csv outputs/mhc_binding/preds.csv \
+		--amp
+	```
 
 Developer notes
 ---------------
 - The repository was standardized to use the model name **AETHER** across docs and scripts.
+- Backbone: ESM3 (`esm3_sm_open_v1`, 1536-dim hidden states) via EvolutionaryScale's `esm` package. Replaces the previous ESM2 encoder.
+- Architecture: bidirectional cross-attention between peptide and MHC token sequences, followed by learned attention pooling and an MLP head.
