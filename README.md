@@ -32,6 +32,16 @@ Data folders
 Quick start
 -----------
 1. Create a Python environment (conda or venv).
+	```bash
+	module load python/3.12 cuda/12.2
+	PROJNAME=AETHER
+	virtualenv --no-download "venv" --prompt "$PROJNAME"
+	source "venv/bin/activate"
+	pip install --upgrade pip
+
+	# To update packages from requirements
+	pip install -r requirements.txt --upgrade
+	```
 2. Install dependencies for the workflow you plan to run:
 	- For training: `pip install -r requirements.txt`
 3. Run the appropriate `train_*.sh` script for experiment (see `src/neoantigen/train/README.md` for example command).
