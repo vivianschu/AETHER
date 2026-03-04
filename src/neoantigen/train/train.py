@@ -11,6 +11,7 @@ from typing import Dict, Optional
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -464,6 +465,14 @@ def main():
             tags=tags,
             mode=args.wandb_mode,
         )
+        # Save source code snapshot to the run
+        _run = getattr(wandb, "run", None)
+        if _run is not None:
+            _run.log_code(
+                root=os.path.join(os.path.dirname(__file__), "..", ".."),
+                include_fn=lambda path: path.endswith(".py") or path.endswith(".json"),
+            )
+
         wandb.config.update(
             {
                 "device": str(device),
@@ -620,14 +629,19 @@ def main():
             return_preds=True,
         )
 
-        with open(os.path.join(args.out_dir, "test_metrics.json"), "w") as f:
+        test_metrics_path = os.path.join(args.out_dir, "test_metrics.json")
+        with open(test_metrics_path, "w") as f:
             json.dump(test_metrics, f, indent=2)
         print("Test metrics:", test_metrics, flush=True)
+
+        # Save test predictions CSV
+        test_preds_path = os.path.join(args.out_dir, "test_predictions.csv")
+        pd.DataFrame({"y_true": test_y, "y_pred_prob": test_probs}).to_csv(test_preds_path, index=False)
 
         if args.plot_test:
             plot_test_results(test_y, test_probs, args.out_dir, args.auc_label_threshold)
 
-        if use_wandb:
+        if use_wandb and wandb is not None:
             wandb.log({f"test/{k}": float(v) for k, v in test_metrics.items()}, step=global_step)
             if args.plot_test:
                 plots_dir = os.path.join(args.out_dir, "plots")
@@ -635,6 +649,13 @@ def main():
                     fpath = os.path.join(plots_dir, fname)
                     if os.path.exists(fpath):
                         wandb.log({f"test/{fname.split('.')[0]}": wandb.Image(fpath)}, step=global_step)
+
+            # Upload test predictions + metrics as a versioned artifact
+            pred_artifact = wandb.Artifact(name="test-predictions", type="predictions")
+            pred_artifact.add_file(test_preds_path)
+            pred_artifact.add_file(test_metrics_path)
+            wandb.log_artifact(pred_artifact)
+
             wandb.finish()
 
     if is_distributed:
