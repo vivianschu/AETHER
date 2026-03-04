@@ -140,10 +140,12 @@ class ESM3Encoder(nn.Module):
         uncached_idxs: list[int] = []
 
         for i, seq in enumerate(sequences):
-            emb = self._mem_cache.get(seq) or self._disk_load(seq)
-            if emb is not None:
-                if seq not in self._mem_cache:
+            emb = self._mem_cache.get(seq)
+            if emb is None:
+                emb = self._disk_load(seq)
+                if emb is not None:
                     self._mem_cache[seq] = emb
+            if emb is not None:
                 cached_embs[i] = emb
             else:
                 uncached_seqs.append(seq)
