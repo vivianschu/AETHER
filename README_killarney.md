@@ -82,3 +82,16 @@ python -m neoantigen.train.train \
   --wandb_run_name mhc_esm3_freeze_batch32 \
   --wandb_tags "killarney,l40s,esm3,freeze"
 ```
+
+```
+### NEW
+# Baseline
+python -m neoantigen.train.train --config configs/default.json --out_dir runs/baseline
+
+# Ablation: everything on
+python -m neoantigen.train.train --config configs/ablation_stacked2_self_product.json --out_dir runs/full
+
+# Quick CLI override (e.g., swap to 3 layers without editing JSON)
+python -m neoantigen.train.train --config configs/default.json \
+    --num_interaction_layers 3 --use_self_attn --out_dir runs/layers3
+```
