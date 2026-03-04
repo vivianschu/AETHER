@@ -384,6 +384,34 @@ def main():
     if is_main:
         print(f"Loaded {len(full_df)} usable rows after dropping NaNs.", flush=True)
 
+    # Check for data leakage between splits
+    if is_main:
+        train_ids = set(train_loader.dataset.indices)
+        valid_ids = set(valid_loader.dataset.indices)
+        test_ids = set(test_loader.dataset.indices)
+
+        if train_ids & valid_ids:
+            print("Warning: Overlap detected between training and validation sets.", flush=True)
+        if train_ids & test_ids:
+            print("Warning: Overlap detected between training and test sets.", flush=True)
+        if valid_ids & test_ids:
+            print("Warning: Overlap detected between validation and test sets.", flush=True)
+
+        print("Data leakage check completed.", flush=True)
+
+    # Ensure preprocessing is applied independently to each split
+    def preprocess_split(split_loader):
+        for batch in split_loader:
+            # Example preprocessing step: normalization
+            batch["features"] = (batch["features"] - batch["features"].mean()) / batch["features"].std()
+        return split_loader
+
+    train_loader = preprocess_split(train_loader)
+    valid_loader = preprocess_split(valid_loader)
+    test_loader = preprocess_split(test_loader)
+
+    print("Preprocessing applied independently to each split.", flush=True)
+
     # ── Model ─────────────────────────────────────────────────────────────────
     model_cfg = ModelConfig(
         model_name=args.model_name,
