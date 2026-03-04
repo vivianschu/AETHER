@@ -385,10 +385,15 @@ def main():
         print(f"Loaded {len(full_df)} usable rows after dropping NaNs.", flush=True)
 
     # Check for data leakage between splits
+    def get_dataset_indices(loader):
+        if hasattr(loader.dataset, 'indices'):
+            return set(loader.dataset.indices)
+        return set(range(len(loader.dataset)))
+
     if is_main:
-        train_ids = set(train_loader.dataset.indices)
-        valid_ids = set(valid_loader.dataset.indices)
-        test_ids = set(test_loader.dataset.indices)
+        train_ids = get_dataset_indices(train_loader)
+        valid_ids = get_dataset_indices(valid_loader)
+        test_ids = get_dataset_indices(test_loader)
 
         if train_ids & valid_ids:
             print("Warning: Overlap detected between training and validation sets.", flush=True)
@@ -401,10 +406,13 @@ def main():
 
     # Ensure preprocessing is applied independently to each split
     def preprocess_split(split_loader):
+        processed_batches = []
         for batch in split_loader:
-            # Example preprocessing step: normalization
-            batch["features"] = (batch["features"] - batch["features"].mean()) / batch["features"].std()
-        return split_loader
+            peptides, mhcs, y = batch  # Unpack the tuple
+            # Example preprocessing step: normalization for y
+            y = (y - y.mean()) / y.std()
+            processed_batches.append((peptides, mhcs, y))
+        return processed_batches
 
     train_loader = preprocess_split(train_loader)
     valid_loader = preprocess_split(valid_loader)

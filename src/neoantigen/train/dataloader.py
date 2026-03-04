@@ -111,45 +111,29 @@ def make_splits(
     if not np.isclose(train_frac + valid_frac + test_frac, 1.0):
         raise ValueError("train_frac + valid_frac + test_frac must sum to 1.0")
 
-    n = len(df)
     rng = np.random.default_rng(seed)
 
-    if stratify:
-        # Bin labels for stratification only (does NOT change regression targets)
-        y_bin = (df["y"].to_numpy() >= stratify_threshold).astype(np.int32)
+    # Group by epitope-MHC sequence pairs
+    grouped = df.groupby(["epitope", "mhc_sequence"])
+    unique_pairs = grouped.size().reset_index()[["epitope", "mhc_sequence"]]
 
-        idx_train, idx_valid, idx_test = [], [], []
-        for cls in [0, 1]:
-            cls_idx = np.where(y_bin == cls)[0]
-            rng.shuffle(cls_idx)
+    # Shuffle the unique pairs
+    unique_pairs = unique_pairs.sample(frac=1, random_state=seed).reset_index(drop=True)
 
-            n_cls = len(cls_idx)
-            n_train = int(round(train_frac * n_cls))
-            n_valid = int(round(valid_frac * n_cls))
-            # remainder goes to test
-            n_test = n_cls - n_train - n_valid
+    n = len(unique_pairs)
+    n_train = int(round(train_frac * n))
+    n_valid = int(round(valid_frac * n))
 
-            idx_train.append(cls_idx[:n_train])
-            idx_valid.append(cls_idx[n_train:n_train + n_valid])
-            idx_test.append(cls_idx[n_train + n_valid:])
+    train_pairs = unique_pairs.iloc[:n_train]
+    valid_pairs = unique_pairs.iloc[n_train:n_train + n_valid]
+    test_pairs = unique_pairs.iloc[n_train + n_valid:]
 
-        idx_train = np.concatenate(idx_train)
-        idx_valid = np.concatenate(idx_valid)
-        idx_test = np.concatenate(idx_test)
+    # Assign rows to splits based on the pairs
+    train_df = df.merge(train_pairs, on=["epitope", "mhc_sequence"])
+    valid_df = df.merge(valid_pairs, on=["epitope", "mhc_sequence"])
+    test_df = df.merge(test_pairs, on=["epitope", "mhc_sequence"])
 
-        rng.shuffle(idx_train)
-        rng.shuffle(idx_valid)
-        rng.shuffle(idx_test)
-    else:
-        idx = np.arange(n)
-        rng.shuffle(idx)
-        n_train = int(round(train_frac * n))
-        n_valid = int(round(valid_frac * n))
-        idx_train = idx[:n_train]
-        idx_valid = idx[n_train:n_train + n_valid]
-        idx_test = idx[n_train + n_valid:]
-
-    return df.iloc[idx_train].copy(), df.iloc[idx_valid].copy(), df.iloc[idx_test].copy()
+    return train_df, valid_df, test_df
 
 
 @dataclass
