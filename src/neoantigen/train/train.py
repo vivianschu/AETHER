@@ -384,42 +384,6 @@ def main():
     if is_main:
         print(f"Loaded {len(full_df)} usable rows after dropping NaNs.", flush=True)
 
-    # Check for data leakage between splits
-    def get_dataset_indices(loader):
-        if hasattr(loader.dataset, 'indices'):
-            return set(loader.dataset.indices)
-        return set(range(len(loader.dataset)))
-
-    if is_main:
-        train_ids = get_dataset_indices(train_loader)
-        valid_ids = get_dataset_indices(valid_loader)
-        test_ids = get_dataset_indices(test_loader)
-
-        if train_ids & valid_ids:
-            print("Warning: Overlap detected between training and validation sets.", flush=True)
-        if train_ids & test_ids:
-            print("Warning: Overlap detected between training and test sets.", flush=True)
-        if valid_ids & test_ids:
-            print("Warning: Overlap detected between validation and test sets.", flush=True)
-
-        print("Data leakage check completed.", flush=True)
-
-    # Ensure preprocessing is applied independently to each split
-    def preprocess_split(split_loader):
-        processed_batches = []
-        for batch in split_loader:
-            peptides, mhcs, y = batch  # Unpack the tuple
-            # Example preprocessing step: normalization for y
-            y = (y - y.mean()) / y.std()
-            processed_batches.append((peptides, mhcs, y))
-        return processed_batches
-
-    train_loader = preprocess_split(train_loader)
-    valid_loader = preprocess_split(valid_loader)
-    test_loader = preprocess_split(test_loader)
-
-    print("Preprocessing applied independently to each split.", flush=True)
-
     # ── Model ─────────────────────────────────────────────────────────────────
     model_cfg = ModelConfig(
         model_name=args.model_name,
