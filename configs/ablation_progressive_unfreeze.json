@@ -1,7 +1,7 @@
 {
   "_comment": "Ablation: progressive unfreezing of last 4 ESM3 layers after epoch 3, with cosine LR.",
 
-  "csv_url": "https://huggingface.co/datasets/wanglab/aether/resolve/main/mhc_set.csv",
+  "csv_url": "data/model/mhc_set.csv",
 
   "model_name": "esm3_sm_open_v1",
   "freeze_backbone": true,

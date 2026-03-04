@@ -1,7 +1,7 @@
 {
   "_comment": "Baseline config. Copy and modify for ablation studies.",
 
-  "csv_url": "https://huggingface.co/datasets/wanglab/aether/resolve/main/mhc_set.csv",
+  "csv_url": "data/model/mhc_set.csv",
 
   "model_name": "esm3_sm_open_v1",
   "freeze_backbone": true,
