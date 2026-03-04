@@ -161,6 +161,8 @@ class DataConfig:
     pin_memory: bool = True
     stratify: bool = True
     stratify_threshold: float = 0.5
+    rank: int = 0        # DDP rank  (0 for single-GPU)
+    world_size: int = 1  # DDP world size (1 for single-GPU)
 
 
 def get_dataloaders(cfg: DataConfig):
@@ -181,10 +183,22 @@ def get_dataloaders(cfg: DataConfig):
     valid_ds = NeoantigenDataset(valid_df)
     test_ds = NeoantigenDataset(test_df)
 
+    train_sampler = None
+    if cfg.world_size > 1:
+        from torch.utils.data import DistributedSampler
+        train_sampler = DistributedSampler(
+            train_ds,
+            num_replicas=cfg.world_size,
+            rank=cfg.rank,
+            shuffle=True,
+            drop_last=True,
+        )
+
     train_loader = DataLoader(
         train_ds,
         batch_size=cfg.batch_size,
-        shuffle=True,
+        shuffle=(train_sampler is None),
+        sampler=train_sampler,
         collate_fn=collate_fn,
         num_workers=cfg.num_workers,
         pin_memory=cfg.pin_memory,

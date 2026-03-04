@@ -11,9 +11,9 @@ srun \
   --nodes=1 \
   --ntasks=1 \
   --gres=gpu:l40s:1 \
-  --mem=20G \
+  --mem=40G \
   --cpus-per-task=4 \
-  --time=24:00:00 \
+  --time=48:00:00 \
   --pty bash
 ```
 
@@ -66,5 +66,19 @@ python -m neoantigen.train.train \
   --wandb \
   --wandb_project aether \
   --wandb_run_name test_mhc_esm3_freeze \
+  --wandb_tags "killarney,l40s,esm3,freeze"
+
+python -m neoantigen.train.train \
+  --out_dir /scratch/$USER/aether/mhc_freeze_batch32 \
+  --csv_url /project/6101773/vchu/AETHER/data/model/mhc_set.csv \
+  --freeze_backbone \
+  --batch_size 32 \
+  --epochs 50 \
+  --lr 1.6e-3 \
+  --amp \
+  --num_workers 4 \
+  --wandb \
+  --wandb_project aether \
+  --wandb_run_name mhc_esm3_freeze_batch32 \
   --wandb_tags "killarney,l40s,esm3,freeze"
 ```
