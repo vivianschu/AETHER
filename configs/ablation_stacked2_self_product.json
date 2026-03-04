@@ -1,0 +1,37 @@
+{
+  "_comment": "Ablation: 2 interaction layers + self-attn + product head + cosine LR schedule.",
+
+  "csv_url": "https://huggingface.co/datasets/wanglab/aether/resolve/main/mhc_set.csv",
+
+  "model_name": "esm3_sm_open_v1",
+  "freeze_backbone": true,
+
+  "d_proj": 512,
+  "num_heads": 8,
+  "dropout": 0.1,
+  "num_interaction_layers": 2,
+  "use_self_attn": true,
+  "use_product_head": true,
+
+  "use_embedding_cache": true,
+  "cache_dir": ".cache/esm3",
+
+  "seed": 1337,
+  "batch_size": 8,
+  "epochs": 10,
+  "lr": 2e-4,
+  "weight_decay": 1e-2,
+  "num_workers": 4,
+  "amp": false,
+  "grad_clip": 1.0,
+  "auc_label_threshold": 0.5,
+  "no_stratify": false,
+
+  "lr_scheduler": "cosine",
+  "warmup_steps": 100,
+
+  "unfreeze_after_epoch": -1,
+  "unfreeze_num_layers": 4,
+
+  "plot_test": true
+}

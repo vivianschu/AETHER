@@ -1,0 +1,37 @@
+{
+  "_comment": "Baseline config. Copy and modify for ablation studies.",
+
+  "csv_url": "https://huggingface.co/datasets/wanglab/aether/resolve/main/mhc_set.csv",
+
+  "model_name": "esm3_sm_open_v1",
+  "freeze_backbone": true,
+
+  "d_proj": 512,
+  "num_heads": 8,
+  "dropout": 0.1,
+  "num_interaction_layers": 1,
+  "use_self_attn": false,
+  "use_product_head": false,
+
+  "use_embedding_cache": false,
+  "cache_dir": ".cache/esm3",
+
+  "seed": 1337,
+  "batch_size": 8,
+  "epochs": 10,
+  "lr": 2e-4,
+  "weight_decay": 1e-2,
+  "num_workers": 4,
+  "amp": false,
+  "grad_clip": 1.0,
+  "auc_label_threshold": 0.5,
+  "no_stratify": false,
+
+  "lr_scheduler": "none",
+  "warmup_steps": 100,
+
+  "unfreeze_after_epoch": -1,
+  "unfreeze_num_layers": 4,
+
+  "plot_test": true
+}

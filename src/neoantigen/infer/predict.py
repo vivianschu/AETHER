@@ -77,13 +77,28 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    ckpt = torch.load(args.ckpt, map_location=device)
-    ckpt_args = ckpt.get("args", {})
+    ckpt = torch.load(args.ckpt, map_location=device, weights_only=False)
 
-    model_name = ckpt_args.get("model_name", "esm3_sm_open_v1")
-    freeze_backbone = ckpt_args.get("freeze_backbone", True)
+    # Load ModelConfig from checkpoint (new-style) or fall back to legacy args dict
+    if "model_cfg" in ckpt:
+        from neoantigen.models.config import ModelConfig
+        model_cfg = ModelConfig.from_dict(ckpt["model_cfg"])
+        # Disable embedding cache and freeze backbone for inference
+        model_cfg.freeze_backbone = True
+        model_cfg.use_embedding_cache = False
+    else:
+        ckpt_args = ckpt.get("args", {})
+        model_cfg = None  # will fall through to legacy kwargs below
 
-    model = NeoantigenModel(model_name=model_name, freeze_backbone=freeze_backbone).to(device)
+    if model_cfg is not None:
+        model = NeoantigenModel(model_cfg).to(device)
+    else:
+        # Legacy checkpoints: reconstruct from saved args
+        ckpt_args = ckpt.get("args", {})
+        model = NeoantigenModel(
+            model_name=ckpt_args.get("model_name", "esm3_sm_open_v1"),
+            freeze_backbone=True,
+        ).to(device)
     model.load_state_dict(ckpt["model_state"])
     model.eval()
 
