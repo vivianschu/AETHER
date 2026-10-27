@@ -255,3 +255,6 @@ secrets.toml
 # Data
 *.json
 *.csv
+
+# Oversized archived embedding file; retain locally.
+/archive_PEPMHC/MHCAttnNet_dataset/4-gram-vectors.txt

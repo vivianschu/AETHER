@@ -97,3 +97,7 @@ Checkpoint, source snapshot, data hash and best-epoch checks are recorded in [pe
 [Attention example](peptide/attention_example.png), [token metadata](peptide/attention_example.json), and [full attention arrays](peptide/attention_example.npz) come from the clean peptide checkpoint. The example uses CPU float32 inference; benchmark scoring used the recorded GPU/AMP configuration. The weights are descriptive attention, not causal attribution.
 
 NetMHCpan/BigMHC source and weight hashes, MHCflurry model hashes, the MHCflurry environment, and its model-release download record are retained alongside this report. Known contradictory pairs are removed by regrouping; rows explicitly marked label_conflict by the CEDAR builder are excluded during loading. These steps do not resolve all label noise.
+
+## Expanded 9-mer attention and plots
+
+The [multi-peptide analysis](attention_analysis.md) covers 2,977 peptide–allele pairs and 10,944 single substitutions. P2/P9 dominate substitution sensitivity, while pooling is nearly uniform; MHC-to-peptide attention emphasizes P1/P2/P9. See the [complete plot gallery](plots/README.md) for PNG figures, allele motifs, multiple examples, and additional performance plots for both protocols. The executed notebook is [05_results_20261027.ipynb](../../figures/05_results_20261027.ipynb).

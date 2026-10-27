@@ -10,6 +10,7 @@ restyled or regenerated without re-running training.
 | `02_training_progress.ipynb` | a training run: loss and AUROC/AUPRC curves, ROC/PR, calibration, per-allele AUROC |
 | `03_benchmark_comparison.ipynb` | AETHER against the reference models: AUROC bars, ROC overlay, precision@k, per-allele scatter |
 | `04_poster_figures.ipynb` | poster-sized panels — larger type, heavier marks, written as `poster_*.png` at 600 dpi / 10 in wide |
+| `05_results_20261027.ipynb` | audited 2026-10-27 runs: multi-peptide 9-mer attention, substitutions, motifs, matched ROC/PR, reliability, lengths, per-allele comparisons; PNG in `results/20261027/plots` |
 
 Run them from this directory. Each cell writes one standalone 600 dpi PNG here.
 
@@ -106,3 +107,7 @@ frameless legends outside the axes. Each figure stands alone — no subplots.
 The shared style block (`new_fig`, `save_fig`, `left_legend`, the color roles)
 is duplicated at the top of both notebooks rather than imported, so each one
 runs standalone.
+
+## Expanded 2026-10-27 analysis
+
+Run `python scripts/analyze_attention_cohort.py` from the repository root first, then execute `05_results_20261027.ipynb`. This notebook saves 300 dpi PNG figures beside the audited results. Read [the analysis report](../results/20261027/attention_analysis.md) for cohort definitions, biological interpretation, precision differences, and limits.
