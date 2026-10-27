@@ -24,18 +24,24 @@ class ModelConfig:
         If True, the MLP head sees [pep, mhc, pep*mhc] instead of [pep, mhc].
         The element-wise product is a lightweight interaction term that has
         proved useful in NLI and siamese network tasks.
+    precompute_mhc : bool
+        Run the frozen backbone once over the unique MHC sequences and pin the
+        result. The class-I split has ~150 distinct MHC sequences across ~344k
+        rows, so this removes nearly all of the backbone's per-step cost.
+        Only valid when freeze_backbone=True; disabled on progressive unfreezing.
     use_embedding_cache : bool
-        Cache ESM3 per-token embeddings in memory (and optionally on disk).
-        Only valid when freeze_backbone=True; automatically disabled on
-        progressive unfreezing.
+        ESM3-only legacy cache (in-memory, optionally on disk).
     """
 
     # ── Backbone ──────────────────────────────────────────────────────────────
-    model_name: str = "esm3_sm_open_v1"
+    model_name: str = "facebook/esm2_t33_650M_UR50D"
     freeze_backbone: bool = True
+    max_length: int | None = None     # truncate tokenized sequences; None = no limit
 
     # ── Cache ─────────────────────────────────────────────────────────────────
-    use_embedding_cache: bool = False
+    precompute_mhc: bool = True       # pin frozen embeddings for unique MHC seqs
+    cache_device: str | None = None   # None = model device; "cpu" to save VRAM
+    use_embedding_cache: bool = False  # ESM3-only legacy cache
     cache_dir: str = ".cache/esm3"
 
     # ── Projection ────────────────────────────────────────────────────────────
@@ -49,6 +55,14 @@ class ModelConfig:
 
     # ── Head ──────────────────────────────────────────────────────────────────
     use_product_head: bool = False     # [pep, mhc, pep*mhc] instead of [pep, mhc]
+
+    # ── TCR recognition head (phase 2) ────────────────────────────────────────
+    # A second head over the same trunk, predicting whether a given receptor
+    # recognizes the peptide-MHC complex. It is a *separate objective*, not an
+    # input to binding: CDR3b never reaches the binding logit, because the TCR
+    # is downstream of binding and would only leak which pairs were assayed.
+    use_tcr_head: bool = False
+    num_tcr_interaction_layers: int = 1  # cross-attn rounds between CDR3b and pMHC
 
     # ── Serialization ─────────────────────────────────────────────────────────
     def to_dict(self) -> dict:

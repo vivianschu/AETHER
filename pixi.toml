@@ -1,0 +1,67 @@
+[workspace]
+name = "aether"
+version = "0.1.0"
+description = "Affinity Evaluation for T-cell HLA Epitope Recognition — peptide-MHC binding prediction with an ESM2 backbone"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+# The A6000 nodes run driver 570.x (CUDA 12.8). Declaring this lets the solver
+# pick the GPU build of pytorch rather than the CPU one.
+[system-requirements]
+cuda = "12.0"
+
+[dependencies]
+python = "3.11.*"
+pytorch-gpu = ">=2.4"
+transformers = ">=4.40"
+tokenizers = ">=0.19"
+safetensors = ">=0.4"
+pandas = ">=2.0"
+numpy = ">=1.24"
+scikit-learn = ">=1.3"
+matplotlib-base = ">=3.7"
+# Arial ships with no Linux distribution. Liberation Sans is metrically
+# identical to it, so figures lay out the same here as on a machine that has
+# Arial; the notebooks list both in their font fallback chain.
+font-ttf-liberation = "*"
+jupyterlab = ">=4.0"
+nbconvert = ">=7.0"
+ipykernel = "*"
+biopython = ">=1.81"
+pyarrow = ">=15"
+
+[pypi-dependencies]
+# Puts `neoantigen` on the path, so no PYTHONPATH=src is needed.
+neoantigen = { path = ".", editable = true }
+wandb = ">=0.18"
+
+# ---------------------------------------------------------------------------
+# tasks — run with `pixi run <name>`
+# ---------------------------------------------------------------------------
+[tasks]
+# 2-minute end-to-end check on a small subsample
+smoke = "python -m neoantigen.train.train --config configs/smoke_test.json --out_dir outputs/smoke_$(date -u +%Y%m%dT%H%M%SZ)"
+
+# the main class-I run, rendering figures as it goes
+train = "bash scripts/train_clean.sh configs/clean_peptide.json outputs/clean_peptide_$(date -u +%Y%m%dT%H%M%SZ)"
+train-heldout = "bash scripts/train_clean.sh configs/heldout_allele.json outputs/heldout_allele_$(date -u +%Y%m%dT%H%M%SZ)"
+
+# leakage-free peptide-grouped splits (see data/mhcattnnet/README.md)
+regroup = "python -m neoantigen.data.regroup --in_dir data/mhcattnnet/classI --out_dir data/mhcattnnet/classI_peptide_split --assignments_file results/20261027/peptide_split_assignments.csv.gz"
+
+# create a separate allele-disjoint protocol (refuses an existing destination)
+regroup-allele = "python -m neoantigen.data.regroup --in_dir data/mhcattnnet/classI --out_dir data/mhcattnnet/classI_allele_sequence_split --group_by allele"
+
+# score a checkpoint on its matching held-out split
+evaluate = "python -m neoantigen.infer.evaluate"
+
+# run the reference models and compare against AETHER
+benchmark = "python -m neoantigen.benchmark.run"
+
+# regenerate figures
+dataset-figures = { cmd = "jupyter nbconvert --to notebook --execute --inplace 01_dataset_overview.ipynb", cwd = "figures" }
+figures = { cmd = "jupyter nbconvert --to notebook --execute --inplace 02_training_progress.ipynb", cwd = "figures" }
+benchmark-figures = { cmd = "jupyter nbconvert --to notebook --execute --inplace 03_benchmark_comparison.ipynb", cwd = "figures" }
+poster-figures = { cmd = "jupyter nbconvert --to notebook --execute --inplace 04_poster_figures.ipynb", cwd = "figures" }
+
+lab = { cmd = "jupyter lab", cwd = "figures" }

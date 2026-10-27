@@ -1,8 +1,13 @@
-esm>=3.0.0
 torch>=2.0.0
+transformers>=4.40.0
 pandas>=1.5.3
 numpy>=1.24.2
 scikit-learn>=1.2.1
 biopython>=1.81
-datasets>=2.14.0
+matplotlib>=3.7.0
+jupyter>=1.0.0
 wandb==0.18.0
+
+# Optional. Only needed to run the retired ESM3 backbone
+# (--model_name esm3_sm_open_v1); the ESM2 path uses transformers.
+# esm>=3.0.0

@@ -212,3 +212,46 @@ archive/
 *.csv
 *.fasta
 .keys
+
+# AETHER training artifacts
+outputs/
+*.pt
+*.ckpt
+
+# Other models
+tools/*
+
+# Small audited benchmark records are kept in version control.
+.venvs/
+!results/**/*.csv
+
+# Local authentication material (never commit actual credentials).
+.env.*
+.netrc
+.npmrc
+.pypirc
+.aws/
+.credentials
+.credentials.*
+.token
+.tokens
+token.txt
+tokens.json
+credentials.json
+credentials.*.json
+secrets.json
+secrets.*.json
+secrets.yaml
+secrets.yml
+secrets.toml
+*service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+/local_credentials/
+/secrets/
+
+# Data
+*.json
+*.csv

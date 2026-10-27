@@ -1,37 +1,31 @@
 {
-  "_comment": "Baseline config. Copy and modify for ablation studies.",
-
-  "csv_url": "data/model/mhc_set.csv",
-
-  "model_name": "esm3_sm_open_v1",
+  "_comment": "Baseline for ablations: ESM2-650M frozen, MHC precomputed, ONE interaction layer, no self-attention, no product head. Copy and change one field at a time to isolate a component's contribution.",
+  "data_dir": "data/mhcattnnet/classI_peptide_split",
+  "model_name": "facebook/esm2_t33_650M_UR50D",
   "freeze_backbone": true,
-
+  "precompute_mhc": true,
   "d_proj": 512,
   "num_heads": 8,
   "dropout": 0.1,
   "num_interaction_layers": 1,
   "use_self_attn": false,
   "use_product_head": false,
-
-  "use_embedding_cache": false,
-  "cache_dir": ".cache/esm3",
-
   "seed": 1337,
-  "batch_size": 8,
+  "batch_size": 64,
   "epochs": 10,
-  "lr": 2e-4,
-  "weight_decay": 1e-2,
+  "lr": 0.0002,
+  "weight_decay": 0.01,
   "num_workers": 4,
-  "amp": false,
+  "amp": true,
   "grad_clip": 1.0,
+  "pos_weight": "none",
   "auc_label_threshold": 0.5,
-  "no_stratify": false,
-
-  "lr_scheduler": "none",
-  "warmup_steps": 100,
-
+  "lr_scheduler": "cosine",
+  "warmup_steps": 200,
+  "eval_every_steps": 1000,
+  "eval_max_batches": 50,
+  "best_metric": "within_allele_auroc",
   "unfreeze_after_epoch": -1,
   "unfreeze_num_layers": 4,
-
-  "plot_test": true
+  "split_group": "peptide"
 }

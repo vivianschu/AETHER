@@ -3,7 +3,40 @@ import torch
 import torch.nn as nn
 
 from .config import ModelConfig
-from .esm3 import ESM3Encoder, AttentionPool
+from .pooling import AttentionPool
+
+
+def build_backbone(cfg: ModelConfig) -> nn.Module:
+    """
+    Construct the sequence backbone named by ``cfg.model_name``.
+
+    ESM3 is imported lazily: it needs EvolutionaryScale's ``esm`` package, which
+    is not required for the ESM2 path and should not break the import if absent.
+    """
+    if cfg.model_name.startswith("facebook/esm2"):
+        from .esm2 import ESM2Encoder
+
+        return ESM2Encoder(
+            model_id=cfg.model_name,
+            freeze=cfg.freeze_backbone,
+            max_length=cfg.max_length,
+            cache_device=cfg.cache_device,
+        )
+
+    if cfg.model_name.startswith("esm3"):
+        from .esm3 import ESM3Encoder
+
+        return ESM3Encoder(
+            model_id=cfg.model_name,
+            freeze=cfg.freeze_backbone,
+            use_cache=cfg.use_embedding_cache,
+            cache_dir=cfg.cache_dir if cfg.use_embedding_cache else None,
+        )
+
+    raise ValueError(
+        f"Unrecognized model_name {cfg.model_name!r}. Expected a "
+        f"'facebook/esm2_*' or 'esm3*' checkpoint."
+    )
 
 
 class CrossAttention(nn.Module):
@@ -128,7 +161,7 @@ class NeoantigenModel(nn.Module):
 
     Architecture
     ------------
-    1. Shared ESM3 backbone encodes both sequences → per-token embeddings (B, L, 1536).
+    1. Shared ESM2 backbone encodes both sequences → per-token embeddings (B, L, D).
     2. Separate linear projections → d_proj for peptide and MHC (captures
        distinct positional roles of short peptides vs. long binding grooves).
     3. N stacked InteractionLayers: each does bidirectional cross-attention
@@ -144,8 +177,17 @@ class NeoantigenModel(nn.Module):
         super().__init__()
         # Backward-compat: accept old-style keyword args from predict.py / checkpoints
         if cfg is None:
+            known = {"model_name", "freeze_backbone", "d_proj", "num_heads", "dropout"}
+            unknown = set(kwargs) - known
+            if unknown:
+                # Silently ignoring these builds a different architecture than
+                # the caller asked for, and the state dict still loads cleanly.
+                raise TypeError(
+                    f"NeoantigenModel got unsupported keyword(s) {sorted(unknown)}. "
+                    f"Pass a ModelConfig instead of keyword arguments."
+                )
             cfg = ModelConfig(
-                model_name=kwargs.get("model_name", "esm3_sm_open_v1"),
+                model_name=kwargs.get("model_name", ModelConfig.model_name),
                 freeze_backbone=kwargs.get("freeze_backbone", True),
                 d_proj=kwargs.get("d_proj", 512),
                 num_heads=kwargs.get("num_heads", 8),
@@ -153,13 +195,8 @@ class NeoantigenModel(nn.Module):
             )
         self.cfg = cfg
 
-        self.encoder = ESM3Encoder(
-            model_id=cfg.model_name,
-            freeze=cfg.freeze_backbone,
-            use_cache=cfg.use_embedding_cache,
-            cache_dir=cfg.cache_dir if cfg.use_embedding_cache else None,
-        )
-        D = self.encoder.hidden_size  # 1536
+        self.encoder = build_backbone(cfg)
+        D = self.encoder.hidden_size  # 1280 for esm2_t33_650M
 
         # Separate projections for peptide vs. MHC tokens
         self.pep_proj = nn.Linear(D, cfg.d_proj)
@@ -184,7 +221,42 @@ class NeoantigenModel(nn.Module):
             nn.Linear(256, 1),
         )
 
-    def forward(self, peptides: list, mhc_seqs: list) -> torch.Tensor:
+        # ── Phase-2 TCR arm ───────────────────────────────────────────────────
+        # Built only when requested, so a phase-1 checkpoint loads unchanged.
+        if cfg.use_tcr_head:
+            self.tcr_proj = nn.Linear(D, cfg.d_proj)
+            self.tcr_layers = nn.ModuleList([
+                InteractionLayer(cfg.d_proj, cfg.num_heads, cfg.dropout,
+                                 cfg.use_self_attn)
+                for _ in range(cfg.num_tcr_interaction_layers)
+            ])
+            self.tcr_pool = AttentionPool(cfg.d_proj)
+            self.tcr_head = nn.Sequential(
+                nn.Linear(cfg.d_proj * 3, 256),
+                nn.ReLU(),
+                nn.Dropout(cfg.dropout),
+                nn.Linear(256, 1),
+            )
+
+    def precompute_mhc(self, mhc_seqs: list, batch_size: int = 8) -> int:
+        """
+        Pin frozen embeddings for the unique MHC sequences in ``mhc_seqs``.
+
+        The class-I split holds ~150 distinct MHC sequences across ~344k rows,
+        so this removes almost all of the backbone's work. Returns the number of
+        sequences cached, or 0 if the backbone does not support caching.
+        """
+        if not hasattr(self.encoder, "precompute"):
+            return 0
+        return self.encoder.precompute(mhc_seqs, batch_size=batch_size)
+
+    def encode_pmhc(self, peptides: list, mhc_seqs: list):
+        """
+        Shared trunk: encode, project, and run the interaction layers.
+
+        Returns the refined token states and their masks, so both heads work
+        from the same peptide-MHC representation.
+        """
         # ── 1. Encode ──────────────────────────────────────────────────────────
         pep_tok, pep_mask = self.encoder(peptides)   # (B, Lp, D), (B, Lp)
         mhc_tok, mhc_mask = self.encoder(mhc_seqs)  # (B, Lm, D), (B, Lm)
@@ -201,6 +273,27 @@ class NeoantigenModel(nn.Module):
         for layer in self.layers:
             pep_h, mhc_h = layer(pep_h, mhc_h, pep_kpm, mhc_kpm)
 
+        return pep_h, mhc_h, pep_mask, mhc_mask
+
+    def forward(self, peptides: list, mhc_seqs: list,
+                cdr3b_seqs: list | None = None) -> torch.Tensor:
+        """
+        Dispatch to the objective implied by the arguments.
+
+        Without ``cdr3b_seqs`` this is phase 1 -- does this peptide bind this
+        MHC -- and the binding branch below never sees a receptor. Binding
+        precedes any T cell, so CDR3b there could only carry assay-selection
+        bias. With ``cdr3b_seqs`` it is the phase-2 recognition objective,
+        which is a different label, not a better-informed binding score.
+
+        Routing through ``forward`` rather than calling ``forward_tcr``
+        directly is what keeps DDP's gradient hooks attached.
+        """
+        if cdr3b_seqs is not None:
+            return self.forward_tcr(peptides, mhc_seqs, cdr3b_seqs)
+
+        pep_h, mhc_h, pep_mask, mhc_mask = self.encode_pmhc(peptides, mhc_seqs)
+
         # ── 4. Attention pooling ───────────────────────────────────────────────
         pep_emb = self.pep_pool(pep_h, pep_mask)  # (B, d_proj)
         mhc_emb = self.mhc_pool(mhc_h, mhc_mask) # (B, d_proj)
@@ -212,3 +305,60 @@ class NeoantigenModel(nn.Module):
             x = torch.cat([pep_emb, mhc_emb], dim=1)                      # (B, 2*d_proj)
 
         return self.head(x).squeeze(-1)  # (B,)
+
+    def forward_tcr(self, peptides: list, mhc_seqs: list,
+                    cdr3b_seqs: list) -> torch.Tensor:
+        """
+        Phase-2 objective: does this receptor recognize this peptide-MHC?
+
+        The CDR3b tokens cross-attend to the peptide-MHC complex -- the two
+        token sets concatenated, since a CDR3 loop contacts peptide and groove
+        as one surface. Returns a recognition logit, never a binding one.
+        """
+        if not self.cfg.use_tcr_head:
+            raise RuntimeError(
+                "forward_tcr requires use_tcr_head=True in the ModelConfig."
+            )
+
+        pep_h, mhc_h, pep_mask, mhc_mask = self.encode_pmhc(peptides, mhc_seqs)
+
+        tcr_tok, tcr_mask = self.encoder(cdr3b_seqs)  # (B, Lt, D), (B, Lt)
+        tcr_h = self.tcr_proj(tcr_tok)                # (B, Lt, d_proj)
+
+        cplx_h = torch.cat([pep_h, mhc_h], dim=1)           # (B, Lp+Lm, d_proj)
+        cplx_mask = torch.cat([pep_mask, mhc_mask], dim=1)  # (B, Lp+Lm)
+        tcr_kpm = (tcr_mask == 0)
+        cplx_kpm = (cplx_mask == 0)
+
+        for layer in self.tcr_layers:
+            tcr_h, cplx_h = layer(tcr_h, cplx_h, tcr_kpm, cplx_kpm)
+
+        tcr_emb = self.tcr_pool(tcr_h, tcr_mask)            # (B, d_proj)
+        # Pool the peptide half of the complex, so the pMHC side of this head
+        # has the same geometry as the phase-1 head's peptide embedding.
+        pmhc_emb = self.pep_pool(cplx_h[:, : pep_h.shape[1]], pep_mask)
+
+        x = torch.cat([pmhc_emb, tcr_emb, pmhc_emb * tcr_emb], dim=1)
+        return self.tcr_head(x).squeeze(-1)  # (B,)
+
+    def freeze_trunk(self, freeze: bool = True) -> int:
+        """
+        Freeze everything the binding logit depends on, for phase-2 training.
+
+        Keeps phase-1 predictions bit-identical while the TCR arm trains, so a
+        phase-2 run cannot quietly move benchmark numbers. Returns the number
+        of parameter tensors touched.
+        """
+        # The encoder needs its own flag flipped, not just requires_grad:
+        # that is what pins it to eval() and picks the no_grad path.
+        if hasattr(self.encoder, "set_frozen"):
+            self.encoder.set_frozen(freeze)
+
+        trunk = [self.encoder, self.pep_proj, self.mhc_proj, self.layers,
+                 self.pep_pool, self.mhc_pool, self.head]
+        n = 0
+        for module in trunk:
+            for p in module.parameters():
+                p.requires_grad = not freeze
+                n += 1
+        return n

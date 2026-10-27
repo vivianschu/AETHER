@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 from neoantigen.models.transformer import NeoantigenModel
+from neoantigen.train.dataloader import resolve_sequence_columns
 
 
 def convert_qualitative_measurement(x):
@@ -28,16 +29,21 @@ def convert_qualitative_measurement(x):
 
 class PredictDataset(Dataset):
     def __init__(self, csv_path: str):
-        df = pd.read_csv(csv_path)
-
-        required = ["epitope", "mhc_sequence"]
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            raise ValueError(f"{csv_path} missing columns: {missing}")
-
-        self.df = df.copy()
-        self.df["epitope"] = self.df["epitope"].astype(str).str.upper().str.replace(" ", "")
-        self.df["mhc_sequence"] = self.df["mhc_sequence"].astype(str).str.upper().str.replace(" ", "")
+        # Resolves peptide/MHC columns by alias, so both the MHCAttnNet schema
+        # (peptide / mhc_amino_acid) and the AETHER schema (epitope /
+        # mhc_sequence) load unchanged, and cleans the sequences the same way
+        # training did.
+        raw = pd.read_csv(csv_path)
+        # Keep the input row number: clean_sequences drops rows whose peptide
+        # or MHC is empty after cleaning and reindexes, so the output CSV can
+        # be shorter than the input with no way to realign it by position.
+        raw = raw.assign(input_row=np.arange(len(raw)))
+        self.df = resolve_sequence_columns(raw)
+        if len(self.df) < len(raw):
+            print(f"WARNING: dropped {len(raw) - len(self.df):,} of {len(raw):,} "
+                  f"input rows with an empty peptide or MHC sequence. The "
+                  f"output carries an `input_row` column to realign them.",
+                  flush=True)
 
         # optional label column
         if "mhc_binding" in self.df.columns:
@@ -73,36 +79,55 @@ def main():
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--amp", action="store_true")
+    parser.add_argument("--no_precompute_mhc", action="store_true",
+                        help="Skip pinning embeddings for the unique MHC sequences.")
+    parser.add_argument("--precompute_batch_size", type=int, default=8)
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     ckpt = torch.load(args.ckpt, map_location=device, weights_only=False)
 
+    from neoantigen.models.config import ModelConfig
+
     # Load ModelConfig from checkpoint (new-style) or fall back to legacy args dict
     if "model_cfg" in ckpt:
-        from neoantigen.models.config import ModelConfig
         model_cfg = ModelConfig.from_dict(ckpt["model_cfg"])
-        # Disable embedding cache and freeze backbone for inference
+        # Always freeze for inference; the cache is rebuilt below from this
+        # file's own MHC sequences rather than the training set's.
         model_cfg.freeze_backbone = True
         model_cfg.use_embedding_cache = False
-    else:
-        ckpt_args = ckpt.get("args", {})
-        model_cfg = None  # will fall through to legacy kwargs below
-
-    if model_cfg is not None:
         model = NeoantigenModel(model_cfg).to(device)
     else:
-        # Legacy checkpoints: reconstruct from saved args
+        # Legacy checkpoints: reconstruct every architecture field from the
+        # saved args. Several of them -- num_heads above all -- change no
+        # tensor shape, so load_state_dict reports a clean load while the
+        # weights are reinterpreted and the predictions shift.
         ckpt_args = ckpt.get("args", {})
-        model = NeoantigenModel(
-            model_name=ckpt_args.get("model_name", "esm3_sm_open_v1"),
-            freeze_backbone=True,
-        ).to(device)
+        fields = ("model_name", "d_proj", "num_heads", "dropout", "max_length",
+                  "num_interaction_layers", "use_self_attn", "use_product_head")
+        model_cfg = ModelConfig.from_dict(
+            {k: ckpt_args[k] for k in fields if k in ckpt_args}
+        )
+        model_cfg.freeze_backbone = True
+        model_cfg.use_embedding_cache = False
+        missing = [k for k in fields if k not in ckpt_args]
+        if missing:
+            print(f"WARNING: checkpoint does not record {missing}; "
+                  f"using ModelConfig defaults for them.", flush=True)
+        model = NeoantigenModel(model_cfg).to(device)
     model.load_state_dict(ckpt["model_state"])
     model.eval()
 
     ds = PredictDataset(args.input_csv)
+
+    # Same trick as training: an input file typically covers a handful of
+    # alleles across many peptides, so encode each MHC sequence once.
+    if not args.no_precompute_mhc:
+        n = model.precompute_mhc(ds.df["mhc_sequence"].tolist(),
+                                 batch_size=args.precompute_batch_size)
+        if n:
+            print(f"Precomputed {n} unique MHC embeddings.")
     loader = DataLoader(
         ds,
         batch_size=args.batch_size,
@@ -119,11 +144,13 @@ def main():
 
     for peptides, mhcs, idxs in loader:
         if use_amp:
-            with torch.cuda.amp.autocast():
+            # bfloat16 matches training; torch.cuda.amp.autocast is deprecated.
+            with torch.amp.autocast("cuda", dtype=torch.bfloat16):
                 logits = model(peptides, mhcs)
         else:
             logits = model(peptides, mhcs)
 
+        logits = logits.float()
         probs = torch.sigmoid(logits)
 
         logits_np = logits.detach().cpu().numpy().astype(np.float32)
@@ -137,7 +164,10 @@ def main():
     out_df["pred_logit"] = pred_logit
     out_df["pred_prob"] = pred_prob
 
-    os.makedirs(os.path.dirname(args.output_csv), exist_ok=True)
+    # dirname is empty for a bare filename, which makedirs rejects.
+    out_dir = os.path.dirname(args.output_csv)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     out_df.to_csv(args.output_csv, index=False)
 
     print(f"Wrote predictions to {args.output_csv}")

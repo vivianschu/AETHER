@@ -1,0 +1,4 @@
+ahocorasick_rs==1.0.3
+appdirs==1.4.4
+mhcflurry==2.3.16
+mhcgnomes==3.64.6

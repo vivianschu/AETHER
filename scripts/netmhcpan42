@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+AETHER_TOOL_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../tools/netMHCpan-4.2" && pwd)"
+export NMHOME="$AETHER_TOOL_ROOT"
+export NETMHCpan="$NMHOME/Linux_x86_64"
+export TMPDIR="${TMPDIR:-/tmp}"
+export DTUIBSWWW=www
+exec "$NETMHCpan/bin/netMHCpan-4.2" "$@"
